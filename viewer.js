@@ -25,16 +25,11 @@
 // FAST SORTED ARRAY FUNCTIONS
 
 function array_remove(array, index) {
-	let n = array.length
-	for (let i = index + 1; i < n; ++i)
-		array[i - 1] = array[i]
-	array.length = n - 1
+    array.splice(index, 1)
 }
 
 function array_insert(array, index, item) {
-	for (let i = array.length; i > index; --i)
-		array[i] = array[i - 1]
-	array[index] = item
+    array.splice(index, 0, item)
 }
 
 function set_has(set, item) {
@@ -205,15 +200,19 @@ class PageView {
 		this.canvasCtx = this.canvasNode.getContext("2d")
 		this.rootNode.appendChild(this.canvasNode)
 
-		this.textData = null
-		this.textNode = document.createElement("div")
-		this.textNode.className = "text"
-		this.rootNode.appendChild(this.textNode)
+        this.svgNode = document.createElementNS("http://www.w3.org/2000/svg", "svg")
 
-		this.linkData = null
-		this.linkNode = document.createElement("div")
-		this.linkNode.className = "link"
-		this.rootNode.appendChild(this.linkNode)
+        this.textData = null
+        this.textNode = document.createElementNS("http://www.w3.org/2000/svg", "g")
+        this.textNode.setAttribute("class", "text")
+        this.svgNode.appendChild(this.textNode)
+
+        this.linkData = null
+        this.linkNode = document.createElementNS("http://www.w3.org/2000/svg", "g")
+        this.linkNode.setAttribute("class", "link")
+        this.svgNode.appendChild(this.linkNode)
+
+        this.rootNode.appendChild(this.svgNode)
 
 		this.needle = null
 		this.loadNeedle = null
@@ -237,6 +236,8 @@ class PageView {
 		this.rootNode.style.height = (((this.size.height * this.zoom) / 72) | 0) + "px"
 		this.canvasNode.style.width = (((this.size.width * this.zoom) / 72) | 0) + "px"
 		this.canvasNode.style.height = (((this.size.height * this.zoom) / 72) | 0) + "px"
+        this.svgNode.setAttribute("width", (((this.size.width * this.zoom) / 72) | 0) + "px")
+        this.svgNode.setAttribute("height", (((this.size.height * this.zoom) / 72) | 0) + "px")
 	}
 
 	setZoom(zoom) {
@@ -317,6 +318,7 @@ class PageView {
 		console.log("DRAWING", this.pageNumber, zoom)
 
 		this.canvasNode.zoom = this.zoom
+        this.svgNode.zoom = this.zoom
 
 		this.drawPromise = worker.drawPageAsPixmap(this.doc, this.pageNumber, zoom * devicePixelRatio)
 
@@ -341,60 +343,49 @@ class PageView {
 	}
 
 	_showText() {
-		this.textNode.zoom = this.zoom
-		this.textNode.replaceChildren()
-
-		let nodes = []
-		let pdf_w = []
-		let html_w = []
-		let text_len = []
+        let frag = document.createDocumentFragment()
 		let scale = this.zoom / 72
 
 		for (let block of this.textData.blocks) {
 			if (block.type === "text") {
 				for (let line of block.lines) {
-					let text = document.createElement("span")
-					text.style.left = line.bbox.x * scale + "px"
-					text.style.top = (line.y - line.font.size * 0.8) * scale + "px"
-					text.style.height = line.bbox.h * scale + "px"
+					let text = document.createElementNS("http://www.w3.org/2000/svg", "text")
+                    text.setAttribute("x", line.bbox.x * scale + "px")
+                    text.setAttribute("y", line.y * scale + "px")
+                    text.style.height = line.bbox.h * scale + "px"
 					text.style.fontSize = line.font.size * scale + "px"
 					text.style.fontFamily = line.font.family
 					text.style.fontWeight = line.font.weight
 					text.style.fontStyle = line.font.style
+                    text.setAttribute("textLength", line.bbox.w * scale + "px")
 					text.textContent = line.text
-					this.textNode.appendChild(text)
-					nodes.push(text)
-					pdf_w.push(line.bbox.w * scale)
-					text_len.push(line.text.length - 1)
+                    frag.appendChild(text)
 				}
 			}
 		}
 
-		for (let i = 0; i < nodes.length; ++i) {
-			if (text_len[i] > 0)
-				html_w[i] = nodes[i].clientWidth
-		}
-
-		for (let i = 0; i < nodes.length; ++i) {
-			if (text_len[i] > 0)
-				nodes[i].style.letterSpacing = (pdf_w[i] - html_w[i]) / text_len[i] + "px"
-		}
+        this.textNode.replaceChildren(frag)
 	}
 
 	_showLinks() {
-		this.linkNode.zoom = this.zoom
-		this.linkNode.replaceChildren()
+        let frag = document.createDocumentFragment()
+        let scale = this.zoom / 72
 
-		let scale = this.zoom / 72
-		for (let link of this.linkData) {
-			let a = document.createElement("a")
-			a.href = link.href
-			a.style.left = link.x * scale + "px"
-			a.style.top = link.y * scale + "px"
-			a.style.width = link.w * scale + "px"
-			a.style.height = link.h * scale + "px"
-			this.linkNode.appendChild(a)
-		}
+        for (let link of this.linkData) {
+            let a = document.createElementNS("http://www.w3.org/2000/svg", "a")
+            a.setAttribute("href", link.href)
+
+            let box = document.createElementNS("http://www.w3.org/2000/svg", "rect")
+            box.setAttribute("x", link.x * scale + "px")
+            box.setAttribute("y", link.y * scale + "px")
+            box.setAttribute("width", link.w * scale + "px")
+            box.setAttribute("height", link.h * scale + "px")
+
+            a.appendChild(box)
+            frag.appendChild(a)
+        }
+
+        this.linkNode.replaceChildren(frag)
 	}
 
 	_showSearch() {
@@ -550,6 +541,12 @@ window.addEventListener("keydown", function (event) {
 			event.preventDefault()
 			break
 
+        // 'A'
+        case 65:
+            document.getSelection().selectAllChildren(document.getElementById("pages"))
+            event.preventDefault()
+            break
+
 		// 'G'
 		case 71:
 			show_search_panel()
@@ -563,6 +560,17 @@ window.addEventListener("keydown", function (event) {
 		hide_search_panel()
 	}
 })
+
+function remove_selection_state(e) {
+    document.getElementById("pages").classList.remove("do-content-select")
+    document.removeEventListener('mouseup', remove_selection_state)
+}
+
+document.addEventListener('selectstart', (event) => {
+    document.getElementById("pages").classList.add("do-content-select")
+    document.addEventListener('mouseup', remove_selection_state)
+})
+
 
 function toggle_fullscreen() {
 	// Safari on iPhone doesn't support Fullscreen
