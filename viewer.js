@@ -348,6 +348,7 @@ class PageView {
 					text.style.fontWeight = line.font.weight
 					text.style.fontStyle = line.font.style
                     text.setAttribute("textLength", line.bbox.w * scale + "px")
+                    text.setAttribute("lengthAdjust", "spacingAndGlyphs")
 					text.textContent = line.text
                     frag.appendChild(text)
 				}
