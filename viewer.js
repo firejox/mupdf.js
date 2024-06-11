@@ -200,19 +200,15 @@ class PageView {
 		this.canvasCtx = this.canvasNode.getContext("2d")
 		this.rootNode.appendChild(this.canvasNode)
 
-        this.svgNode = document.createElementNS("http://www.w3.org/2000/svg", "svg")
-
         this.textData = null
-        this.textNode = document.createElementNS("http://www.w3.org/2000/svg", "g")
+        this.textNode = document.createElementNS("http://www.w3.org/2000/svg", "svg")
         this.textNode.setAttribute("class", "text")
-        this.svgNode.appendChild(this.textNode)
+        this.rootNode.appendChild(this.textNode)
 
         this.linkData = null
-        this.linkNode = document.createElementNS("http://www.w3.org/2000/svg", "g")
-        this.linkNode.setAttribute("class", "link")
-        this.svgNode.appendChild(this.linkNode)
-
-        this.rootNode.appendChild(this.svgNode)
+        this.linkNode = document.createElement("div")
+        this.linkNode.className = "link"
+        this.rootNode.appendChild(this.linkNode)
 
 		this.needle = null
 		this.loadNeedle = null
@@ -234,10 +230,6 @@ class PageView {
 		// calls `libmupdf._wasm_new_pixmap_with_bbox`.
 		this.rootNode.style.width = (((this.size.width * this.zoom) / 72) | 0) + "px"
 		this.rootNode.style.height = (((this.size.height * this.zoom) / 72) | 0) + "px"
-		this.canvasNode.style.width = (((this.size.width * this.zoom) / 72) | 0) + "px"
-		this.canvasNode.style.height = (((this.size.height * this.zoom) / 72) | 0) + "px"
-        this.svgNode.setAttribute("width", (((this.size.width * this.zoom) / 72) | 0) + "px")
-        this.svgNode.setAttribute("height", (((this.size.height * this.zoom) / 72) | 0) + "px")
 	}
 
 	setZoom(zoom) {
@@ -318,7 +310,6 @@ class PageView {
 		console.log("DRAWING", this.pageNumber, zoom)
 
 		this.canvasNode.zoom = this.zoom
-        this.svgNode.zoom = this.zoom
 
 		this.drawPromise = worker.drawPageAsPixmap(this.doc, this.pageNumber, zoom * devicePixelRatio)
 
@@ -352,7 +343,6 @@ class PageView {
 					let text = document.createElementNS("http://www.w3.org/2000/svg", "text")
                     text.setAttribute("x", line.bbox.x * scale + "px")
                     text.setAttribute("y", line.y * scale + "px")
-                    text.style.height = line.bbox.h * scale + "px"
 					text.style.fontSize = line.font.size * scale + "px"
 					text.style.fontFamily = line.font.family
 					text.style.fontWeight = line.font.weight
@@ -364,6 +354,7 @@ class PageView {
 			}
 		}
 
+        this.textNode.zoom = this.zoom
         this.textNode.replaceChildren(frag)
 	}
 
@@ -372,19 +363,16 @@ class PageView {
         let scale = this.zoom / 72
 
         for (let link of this.linkData) {
-            let a = document.createElementNS("http://www.w3.org/2000/svg", "a")
-            a.setAttribute("href", link.href)
-
-            let box = document.createElementNS("http://www.w3.org/2000/svg", "rect")
-            box.setAttribute("x", link.x * scale + "px")
-            box.setAttribute("y", link.y * scale + "px")
-            box.setAttribute("width", link.w * scale + "px")
-            box.setAttribute("height", link.h * scale + "px")
-
-            a.appendChild(box)
+            let a = document.createElement("a")
+            a.href = link.href
+            a.style.left = link.x * scale + "px"
+            a.style.top = link.y * scale + "px"
+            a.style.width = link.w * scale + "px"
+            a.style.height = link.h * scale + "px"
             frag.appendChild(a)
         }
 
+        this.linkNode.zoom = this.zoom
         this.linkNode.replaceChildren(frag)
 	}
 
